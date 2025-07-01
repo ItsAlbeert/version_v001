@@ -62,18 +62,17 @@ try {
   auth = getAuth(app)
   console.log("✅ Auth inicializado")
 
-  // Conectar a emuladores en desarrollo si están configurados
+  // Conectar a emuladores en desarrollo (solo si están disponibles)
   if (process.env.NODE_ENV === "development") {
-    if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true") {
-      console.log("🔧 Conectando a emuladores de Firebase...")
+    console.log("🔧 Modo desarrollo detectado")
 
-      try {
-        connectFirestoreEmulator(db, "localhost", 8080)
-        connectAuthEmulator(auth, "http://localhost:9099")
-        console.log("✅ Conectado a emuladores de Firebase")
-      } catch (error) {
-        console.warn("⚠️ No se pudo conectar a emuladores:", error)
-      }
+    try {
+      // Intentar conectar a emuladores si están disponibles
+      connectFirestoreEmulator(db, "localhost", 8080)
+      connectAuthEmulator(auth, "http://localhost:9099")
+      console.log("✅ Conectado a emuladores de Firebase")
+    } catch (error) {
+      console.warn("⚠️ Emuladores no disponibles, usando Firebase en producción:", error)
     }
   }
 } catch (error) {
@@ -106,7 +105,7 @@ export function getFirebaseInfo() {
   return {
     projectId: firebaseConfig.projectId,
     authDomain: firebaseConfig.authDomain,
-    isEmulator: process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true",
+    isEmulator: process.env.NODE_ENV === "development",
     environment: process.env.NODE_ENV,
   }
 }

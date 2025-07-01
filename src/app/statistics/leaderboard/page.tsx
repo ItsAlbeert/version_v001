@@ -251,8 +251,9 @@ export default function LeaderboardPage() {
   }
 
   const getExtraGamePointsText = (points: number | undefined): string => {
-    if (points === undefined) return "N/A"
-    return points >= 0 ? `+${points.toFixed(1)}` : points.toFixed(1)
+    if (points === undefined || points === null) return "N/A"
+    const fixedPoints = points.toFixed(1)
+    return points >= 0 ? `+${fixedPoints}` : fixedPoints
   }
 
   if (overallError) {
@@ -300,7 +301,12 @@ export default function LeaderboardPage() {
                 Los participantes se clasifican por sus Puntos Totales (Pᴛ). Haz clic en las cabeceras para ordenar.
               </CardDescription>
             </div>
-            <Button onClick={handleRefreshAll} variant="outline" size="sm" className="flex items-center gap-2">
+            <Button
+              onClick={handleRefreshAll}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 bg-transparent"
+            >
               <RefreshCw className="h-4 w-4" />
               Actualizar
             </Button>
@@ -377,11 +383,11 @@ export default function LeaderboardPage() {
                       </TableCell>
                       <TableCell className="font-medium">{entry.name}</TableCell>
                       <TableCell className="text-center">{entry.year}</TableCell>
-                      <TableCell className="text-right">{entry.puntos_fisico.toFixed(1)}</TableCell>
-                      <TableCell className="text-right">{entry.puntos_mental.toFixed(1)}</TableCell>
-                      <TableCell className="text-right">{entry.puntos_extras.toFixed(1)}</TableCell>
+                      <TableCell className="text-right">{(entry.puntos_fisico ?? 0).toFixed(1)}</TableCell>
+                      <TableCell className="text-right">{(entry.puntos_mental ?? 0).toFixed(1)}</TableCell>
+                      <TableCell className="text-right">{(entry.puntos_extras ?? 0).toFixed(1)}</TableCell>
                       <TableCell className="text-right font-semibold text-primary">
-                        {entry.puntos_total.toFixed(1)}
+                        {(entry.puntos_total ?? 0).toFixed(1)}
                       </TableCell>
                     </TableRow>
                     {expandedParticipantId === entry.id && (
@@ -403,7 +409,7 @@ export default function LeaderboardPage() {
                                   href={`/times?edit_score_id=${entry.latestScoreId}&participant_id=${entry.id}`}
                                   passHref
                                 >
-                                  <Button variant="outline" size="icon" className="rounded-full h-8 w-8">
+                                  <Button variant="outline" size="icon" className="rounded-full h-8 w-8 bg-transparent">
                                     <Edit3 className="h-4 w-4" />
                                     <span className="sr-only">Editar Esta Puntuación</span>
                                   </Button>
@@ -414,15 +420,15 @@ export default function LeaderboardPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
                               <p>
                                 Tiempo Físico Bruto:{" "}
-                                <span className="font-medium">{entry.latest_tiempo_fisico.toFixed(2)} min</span> → P
-                                <sub>Físico</sub>:{" "}
-                                <span className="font-medium">{entry.puntos_fisico.toFixed(1)} pts</span>
+                                <span className="font-medium">{(entry.latest_tiempo_fisico ?? 0).toFixed(2)} min</span>{" "}
+                                → P<sub>Físico</sub>:{" "}
+                                <span className="font-medium">{(entry.puntos_fisico ?? 0).toFixed(1)} pts</span>
                               </p>
                               <p>
                                 Tiempo Mental Bruto:{" "}
-                                <span className="font-medium">{entry.latest_tiempo_mental.toFixed(2)} min</span> → P
-                                <sub>Mental</sub>:{" "}
-                                <span className="font-medium">{entry.puntos_mental.toFixed(1)} pts</span>
+                                <span className="font-medium">{(entry.latest_tiempo_mental ?? 0).toFixed(2)} min</span>{" "}
+                                → P<sub>Mental</sub>:{" "}
+                                <span className="font-medium">{(entry.puntos_mental ?? 0).toFixed(1)} pts</span>
                               </p>
                             </div>
 
@@ -460,10 +466,10 @@ export default function LeaderboardPage() {
                                     </li>
                                   ))}
                                   <li className="font-semibold">
-                                    P<sub>Extras</sub> (Cruda): {entry.puntos_extras_cruda.toFixed(1)} pts
+                                    P<sub>Extras</sub> (Cruda): {(entry.puntos_extras_cruda ?? 0).toFixed(1)} pts
                                   </li>
                                   <li className="font-semibold">
-                                    P<sub>Extras</sub> (Final Ajustado): {entry.puntos_extras.toFixed(1)} pts
+                                    P<sub>Extras</sub> (Final Ajustado): {(entry.puntos_extras ?? 0).toFixed(1)} pts
                                   </li>
                                 </ul>
                               </div>
@@ -504,7 +510,7 @@ export default function LeaderboardPage() {
                                       <ul className="list-disc pl-5 space-y-0.5 text-sm text-foreground/80">
                                         {categoryGamesTimes.map((game) => (
                                           <li key={game.name}>
-                                            {game.name}: {game.time.toFixed(2)} min
+                                            {game.name}: {(game.time ?? 0).toFixed(2)} min
                                           </li>
                                         ))}
                                       </ul>

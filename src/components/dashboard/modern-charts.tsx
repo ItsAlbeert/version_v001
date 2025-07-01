@@ -2,24 +2,24 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { Trophy, TrendingUp, Users, Target } from "lucide-react"
-import type { ParticipantWithScore } from "../../lib/data-utils"
+import type { LeaderboardEntry } from "../../types"
 
 interface ModernChartsProps {
-  participantsWithScores: ParticipantWithScore[]
+  leaderboardData: LeaderboardEntry[]
 }
 
-export function ModernCharts({ participantsWithScores }: ModernChartsProps) {
-  const totalParticipants = participantsWithScores.length
-  const participantsWithData = participantsWithScores.filter((p) => p.puntos_total > 0).length
+export function ModernCharts({ leaderboardData }: ModernChartsProps) {
+  const totalParticipants = leaderboardData.length
+  const participantsWithData = leaderboardData.filter((p) => p.puntos_total > 0).length
   const averageScore =
     participantsWithData > 0
       ? Math.round(
-          participantsWithScores.filter((p) => p.puntos_total > 0).reduce((sum, p) => sum + p.puntos_total, 0) /
+          leaderboardData.filter((p) => p.puntos_total > 0).reduce((sum, p) => sum + p.puntos_total, 0) /
             participantsWithData,
         )
       : 0
-  const topScore =
-    participantsWithScores.length > 0 ? Math.max(...participantsWithScores.map((p) => p.puntos_total)) : 0
+  const topScore = leaderboardData.length > 0 ? Math.max(...leaderboardData.map((p) => p.puntos_total)) : 0
+  const topParticipant = leaderboardData.find((p) => p.puntos_total === topScore)
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -51,10 +51,8 @@ export function ModernCharts({ participantsWithScores }: ModernChartsProps) {
           <Trophy className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{topScore}</div>
-          <p className="text-xs text-muted-foreground">
-            {participantsWithScores.find((p) => p.puntos_total === topScore)?.name || "N/A"}
-          </p>
+          <div className="text-2xl font-bold">{topScore.toFixed(1)}</div>
+          <p className="text-xs text-muted-foreground">{topParticipant?.name || "N/A"}</p>
         </CardContent>
       </Card>
 
