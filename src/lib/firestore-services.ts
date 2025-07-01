@@ -8,7 +8,6 @@ import {
   deleteDoc,
   query,
   orderBy,
-  limit,
   Timestamp,
   setDoc,
 } from "firebase/firestore"
@@ -68,7 +67,6 @@ export async function getParticipants(): Promise<Participant[]> {
     return participants
   } catch (error) {
     console.error("❌ Error fetching participants:", error)
-    // Return empty array instead of throwing to prevent app crash
     return []
   }
 }
@@ -123,7 +121,6 @@ export async function getScores(): Promise<Score[]> {
     querySnapshot.forEach((doc) => {
       const data = doc.data()
 
-      // Convert Timestamp to string if necessary
       let recordedAt: string
       if (data.recordedAt && typeof data.recordedAt.toDate === "function") {
         recordedAt = data.recordedAt.toDate().toISOString()
@@ -152,50 +149,6 @@ export async function getScores(): Promise<Score[]> {
     return scores
   } catch (error) {
     console.error("❌ Error fetching scores:", error)
-    // Return empty array instead of throwing to prevent app crash
-    return []
-  }
-}
-
-export async function getRecentScores(limitCount = 10): Promise<Score[]> {
-  console.log("📥 Fetching recent scores...")
-  try {
-    const querySnapshot = await getDocs(
-      query(collection(db, "scores"), orderBy("recordedAt", "desc"), limit(limitCount)),
-    )
-    const scores: Score[] = []
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-
-      let recordedAt: string
-      if (data.recordedAt && typeof data.recordedAt.toDate === "function") {
-        recordedAt = data.recordedAt.toDate().toISOString()
-      } else if (typeof data.recordedAt === "string") {
-        recordedAt = data.recordedAt
-      } else {
-        recordedAt = new Date().toISOString()
-      }
-
-      scores.push({
-        id: doc.id,
-        participantId: data.participantId || "",
-        tiempo_fisico: Number(data.tiempo_fisico) || 0,
-        tiempo_mental: Number(data.tiempo_mental) || 0,
-        extraGameDetailedStatuses: data.extraGameDetailedStatuses || {},
-        gameTimes: data.gameTimes || {},
-        recordedAt,
-        puntos_fisico: data.puntos_fisico ? Number(data.puntos_fisico) : undefined,
-        puntos_mental: data.puntos_mental ? Number(data.puntos_mental) : undefined,
-        puntos_extras: data.puntos_extras ? Number(data.puntos_extras) : undefined,
-        puntos_total: data.puntos_total ? Number(data.puntos_total) : undefined,
-      })
-    })
-
-    console.log(`✅ ${scores.length} recent scores fetched`)
-    return scores
-  } catch (error) {
-    console.error("❌ Error fetching recent scores:", error)
     return []
   }
 }
@@ -379,7 +332,6 @@ export async function getScoringSettings(): Promise<ScoringSettings> {
       console.log("✅ Scoring settings fetched")
       return settings
     } else {
-      // Create default settings if none exist
       await setDoc(docRef, DEFAULT_SCORING_SETTINGS)
       const settings = { id: "scoring_rules", ...DEFAULT_SCORING_SETTINGS }
       console.log("✅ Default scoring settings created")
@@ -387,7 +339,6 @@ export async function getScoringSettings(): Promise<ScoringSettings> {
     }
   } catch (error) {
     console.error("❌ Error fetching scoring settings:", error)
-    // Return default settings if there's an error
     return { id: "scoring_rules", ...DEFAULT_SCORING_SETTINGS }
   }
 }
@@ -404,7 +355,6 @@ export async function updateScoringSettings(settings: Omit<ScoringSettings, "id"
   }
 }
 
-// Utility function to force refresh all data
 export async function forceRefreshAllData(): Promise<{
   participants: Participant[]
   scores: Score[]
@@ -424,7 +374,6 @@ export async function forceRefreshAllData(): Promise<{
     return { participants, scores, games, settings }
   } catch (error) {
     console.error("❌ Error refreshing all data:", error)
-    // Return partial data even if some fail
     const participants = await getParticipants().catch(() => [])
     const scores = await getScores().catch(() => [])
     const games = await getGames().catch(() => [])
