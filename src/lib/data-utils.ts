@@ -1,113 +1,140 @@
-import type { Participant, Score, ScoringSettings } from "../types"
+import type { Participant, Score, ScoringSettings, Game, LeaderboardEntry, ExtraGameStatusDetail } from "../types"
+import { DEFAULT_SCORING_SETTINGS } from "./firestore-services"
 
-export interface ParticipantWithScore extends Participant {
-  latestScore?: Score
-  puntos_total: number
-  puntos_fisico: number
-  puntos_mental: number
-  puntos_extras: number
-  position: number
-}
-
-// Calculate score for physical time
+/**
+ * Calculates the score for a physical game based on time.
+ * The lower the time, the higher the score.
+ */
 export function calculatePhysicalScore(timeInMinutes: number, settings: ScoringSettings): number {
-  const { threshold1, threshold2, maxPoints, minPoints } = settings.physical
+  const physicalSettings = settings?.physical ?? DEFAULT_SCORING_SETTINGS.physical
+  if (timeInMinutes <= physicalSettings.threshold1) return physicalSettings.maxPoints
+  if (timeInMinutes >= physicalSettings.threshold2) return physicalSettings.minPoints
 
-  if (timeInMinutes <= threshold1) {
-    return maxPoints
-  } else if (timeInMinutes >= threshold2) {
-    return minPoints
-  } else {
-    const ratio = (timeInMinutes - threshold1) / (threshold2 - threshold1)
-    return Math.round(maxPoints - ratio * (maxPoints - minPoints))
-  }
+  const ratio =
+    (timeInMinutes - physicalSettings.threshold1) / (physicalSettings.threshold2 - physicalSettings.threshold1)
+  return Math.round(physicalSettings.maxPoints - ratio * (physicalSettings.maxPoints - physicalSettings.minPoints))
 }
 
-// Calculate score for mental time
+/**
+ * Calculates the score for a mental game based on time.
+ * The lower the time, the higher the score.
+ */
 export function calculateMentalScore(timeInMinutes: number, settings: ScoringSettings): number {
-  const { threshold1, threshold2, maxPoints, minPoints } = settings.mental
+  const mentalSettings = settings?.mental ?? DEFAULT_SCORING_SETTINGS.mental
+  if (timeInMinutes <= mentalSettings.threshold1) return mentalSettings.maxPoints
+  if (timeInMinutes >= mentalSettings.threshold2) return mentalSettings.minPoints
 
-  if (timeInMinutes <= threshold1) {
-    return maxPoints
-  } else if (timeInMinutes >= threshold2) {
-    return minPoints
-  } else {
-    const ratio = (timeInMinutes - threshold1) / (threshold2 - threshold1)
-    return Math.round(maxPoints - ratio * (maxPoints - minPoints))
-  }
+  const ratio = (timeInMinutes - mentalSettings.threshold1) / (mentalSettings.threshold2 - mentalSettings.threshold1)
+  return Math.round(mentalSettings.maxPoints - ratio * (mentalSettings.maxPoints - mentalSettings.minPoints))
 }
 
-// Calculate extra games score
+/**
+ * Calculates the points for extra games.
+ * Returns the raw total, the capped total, and a detailed breakdown.
+ */
 export function calculateExtraScore(
-  extraGameDetailedStatuses: { [gameId: string]: any },
+  extraGameStatuses: { [gameId: string]: ExtraGameStatusDetail } | undefined,
+  games: Game[],
   settings: ScoringSettings,
-): number {
-  let totalPoints = 0
+): { cappedScore: number; rawScore: number; individualPoints: { [gameId: string]: number } } {
+  const extraSettings = settings?.extras ?? DEFAULT_SCORING_SETTINGS.extras
+  const individualPoints: { [gameId: string]: number } = {}
+  let rawScore = 0
 
-  Object.values(extraGameDetailedStatuses).forEach((status: any) => {
-    if (status && status.status && status.type) {
-      const gameType = status.type as "opcional" | "obligatoria"
-      const gameStatus = status.status as "muy_bien" | "regular" | "no_hecho"
+  if (extraGameStatuses && games.length > 0) {
+    const gamesMap = new Map(games.map((g) => [g.id, g]))
 
-      if (settings.extras.points[gameType] && settings.extras.points[gameType][gameStatus] !== undefined) {
-        totalPoints += settings.extras.points[gameType][gameStatus]
+    for (const gameId in extraGameStatuses) {
+      const game = gamesMap.get(gameId)
+      const status = extraGameStatuses[gameId]
+
+      if (game && game.category === "Extra" && game.extraType) {
+        const pointsConfig = extraSettings.points[game.extraType]
+        const points = pointsConfig[status] ?? 0
+        individualPoints[gameId] = points
+        rawScore += points
       }
     }
-  })
+  }
 
-  return Math.max(settings.extras.capMin, Math.min(settings.extras.capMax, totalPoints))
+  const cappedScore = Math.max(extraSettings.capMin, Math.min(extraSettings.capMax, rawScore))
+  return { cappedScore, rawScore, individualPoints }
 }
 
-// Calculate all participant scores
+/**
+ * Processes all data to generate a complete leaderboard.
+ * This is the main data transformation function for rankings.
+ */
 export function calculateAllParticipantScores(
   participants: Participant[],
   scores: Score[],
+  games: Game[],
   settings: ScoringSettings,
-): ParticipantWithScore[] {
-  const latestScoresMap = new Map<string, Score>()
+): LeaderboardEntry[] {
+  if (!participants || !scores || !settings) {
+    return []
+  }
 
+  const latestScoresMap = new Map<string, Score>()
   scores.forEach((score) => {
+    if (!score.participantId) return
     const existing = latestScoresMap.get(score.participantId)
     if (!existing || new Date(score.recordedAt) > new Date(existing.recordedAt)) {
       latestScoresMap.set(score.participantId, score)
     }
   })
 
-  const participantsWithScores: ParticipantWithScore[] = participants.map((participant) => {
+  const leaderboard: LeaderboardEntry[] = participants.map((participant) => {
     const latestScore = latestScoresMap.get(participant.id)
 
     if (!latestScore) {
       return {
         ...participant,
-        puntos_total: 0,
+        rank: 0,
+        latest_tiempo_fisico: 0,
+        latest_tiempo_mental: 0,
         puntos_fisico: 0,
         puntos_mental: 0,
         puntos_extras: 0,
-        position: 0,
+        puntos_extras_cruda: 0,
+        puntos_total: 0,
+        scoreRecordedAt: new Date(0).toISOString(),
       }
     }
 
-    const puntos_fisico = latestScore.puntos_fisico ?? calculatePhysicalScore(latestScore.tiempo_fisico, settings)
-    const puntos_mental = latestScore.puntos_mental ?? calculateMentalScore(latestScore.tiempo_mental, settings)
-    const puntos_extras =
-      latestScore.puntos_extras ?? calculateExtraScore(latestScore.extraGameDetailedStatuses, settings)
-    const puntos_total = latestScore.puntos_total ?? puntos_fisico + puntos_mental + puntos_extras
+    const puntos_fisico = calculatePhysicalScore(latestScore.tiempo_fisico ?? 0, settings)
+    const puntos_mental = calculateMentalScore(latestScore.tiempo_mental ?? 0, settings)
+    const { cappedScore, rawScore, individualPoints } = calculateExtraScore(
+      latestScore.extraGameDetailedStatuses,
+      games,
+      settings,
+    )
+
+    const puntos_total = puntos_fisico + puntos_mental + cappedScore
 
     return {
       ...participant,
-      latestScore,
-      puntos_total,
+      rank: 0, // Rank will be assigned after sorting
+      latest_tiempo_fisico: latestScore.tiempo_fisico ?? 0,
+      latest_tiempo_mental: latestScore.tiempo_mental ?? 0,
+      latest_extra_game_detailed_statuses: latestScore.extraGameDetailedStatuses,
+      latestScoreId: latestScore.id,
       puntos_fisico,
       puntos_mental,
-      puntos_extras,
-      position: 0,
+      puntos_extras: cappedScore,
+      puntos_extras_cruda: rawScore,
+      puntos_total,
+      individual_extra_game_points: individualPoints,
+      scoreRecordedAt: latestScore.recordedAt,
+      gameTimes: latestScore.gameTimes,
     }
   })
 
-  participantsWithScores.sort((a, b) => b.puntos_total - a.puntos_total)
-  participantsWithScores.forEach((participant, index) => {
-    participant.position = index + 1
+  // Sort by total points and assign rank
+  leaderboard.sort((a, b) => b.puntos_total - a.puntos_total)
+  leaderboard.forEach((entry, index) => {
+    entry.rank = index + 1
   })
 
-  return participantsWithScores
+  return leaderboard
 }

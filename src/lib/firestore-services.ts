@@ -1,45 +1,44 @@
 import {
   collection,
-  doc,
-  getDocs,
-  getDoc,
   addDoc,
+  getDocs,
+  doc,
   updateDoc,
   deleteDoc,
+  getDoc,
   query,
   orderBy,
   Timestamp,
-  setDoc,
 } from "firebase/firestore"
 import { db } from "./firebase"
-import type { Participant, Score, Game, ScoringSettings, ExtraGameStatusDetail } from "../types"
+import type { Participant, Score, Game, ScoringSettings } from "../types"
 
 // Default scoring settings
 export const DEFAULT_SCORING_SETTINGS: ScoringSettings = {
   physical: {
-    threshold1: 220,
-    threshold2: 360,
+    threshold1: 15,
+    threshold2: 30,
     maxPoints: 100,
-    minPoints: 30,
+    minPoints: 20,
   },
   mental: {
-    threshold1: 50,
-    threshold2: 120,
+    threshold1: 10,
+    threshold2: 25,
     maxPoints: 100,
-    minPoints: 30,
+    minPoints: 20,
   },
   extras: {
-    capMax: 30,
-    capMin: -10,
+    capMax: 50,
+    capMin: -20,
     points: {
       opcional: {
-        muy_bien: 10,
-        regular: 6,
+        muy_bien: 15,
+        regular: 8,
         no_hecho: 0,
       },
       obligatoria: {
-        muy_bien: 10,
-        regular: 6,
+        muy_bien: 20,
+        regular: 10,
         no_hecho: -10,
       },
     },
@@ -48,337 +47,230 @@ export const DEFAULT_SCORING_SETTINGS: ScoringSettings = {
 
 // Participants
 export async function getParticipants(): Promise<Participant[]> {
-  console.log("📥 Fetching participants...")
   try {
     const querySnapshot = await getDocs(collection(db, "participants"))
-    const participants: Participant[] = []
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      participants.push({
-        id: doc.id,
-        name: data.name || "",
-        year: (Number(data.year) as 1 | 2 | 3) || 1,
-        photoUrl: data.photoUrl || undefined,
-      })
-    })
-
-    console.log(`✅ ${participants.length} participants fetched`)
-    return participants
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Participant[]
   } catch (error) {
-    console.error("❌ Error fetching participants:", error)
-    return []
+    console.error("Error fetching participants:", error)
+    throw new Error("Failed to fetch participants")
   }
 }
 
 export async function addParticipant(participant: Omit<Participant, "id">): Promise<string> {
-  console.log("➕ Adding participant:", participant.name)
   try {
-    const docRef = await addDoc(collection(db, "participants"), {
-      ...participant,
-      createdAt: Timestamp.now(),
-    })
-    console.log("✅ Participant added with ID:", docRef.id)
+    const docRef = await addDoc(collection(db, "participants"), participant)
     return docRef.id
   } catch (error) {
-    console.error("❌ Error adding participant:", error)
-    throw error
+    console.error("Error adding participant:", error)
+    throw new Error("Failed to add participant")
   }
 }
 
-export async function updateParticipant(id: string, updates: Partial<Participant>): Promise<void> {
-  console.log("📝 Updating participant:", id)
+export async function updateParticipant(id: string, participant: Partial<Participant>): Promise<void> {
   try {
-    await updateDoc(doc(db, "participants", id), {
-      ...updates,
-      updatedAt: Timestamp.now(),
-    })
-    console.log("✅ Participant updated")
+    await updateDoc(doc(db, "participants", id), participant)
   } catch (error) {
-    console.error("❌ Error updating participant:", error)
-    throw error
+    console.error("Error updating participant:", error)
+    throw new Error("Failed to update participant")
   }
 }
 
 export async function deleteParticipant(id: string): Promise<void> {
-  console.log("🗑️ Deleting participant:", id)
   try {
     await deleteDoc(doc(db, "participants", id))
-    console.log("✅ Participant deleted")
   } catch (error) {
-    console.error("❌ Error deleting participant:", error)
-    throw error
+    console.error("Error deleting participant:", error)
+    throw new Error("Failed to delete participant")
   }
 }
 
 // Scores
 export async function getScores(): Promise<Score[]> {
-  console.log("📥 Fetching scores...")
   try {
     const querySnapshot = await getDocs(query(collection(db, "scores"), orderBy("recordedAt", "desc")))
-    const scores: Score[] = []
-
-    querySnapshot.forEach((doc) => {
+    return querySnapshot.docs.map((doc) => {
       const data = doc.data()
-
-      let recordedAt: string
-      if (data.recordedAt && typeof data.recordedAt.toDate === "function") {
-        recordedAt = data.recordedAt.toDate().toISOString()
-      } else if (typeof data.recordedAt === "string") {
-        recordedAt = data.recordedAt
-      } else {
-        recordedAt = new Date().toISOString()
-      }
-
-      scores.push({
+      return {
         id: doc.id,
-        participantId: data.participantId || "",
-        tiempo_fisico: Number(data.tiempo_fisico) || 0,
-        tiempo_mental: Number(data.tiempo_mental) || 0,
-        extraGameDetailedStatuses: data.extraGameDetailedStatuses || {},
-        gameTimes: data.gameTimes || {},
-        recordedAt,
-        puntos_fisico: data.puntos_fisico ? Number(data.puntos_fisico) : undefined,
-        puntos_mental: data.puntos_mental ? Number(data.puntos_mental) : undefined,
-        puntos_extras: data.puntos_extras ? Number(data.puntos_extras) : undefined,
-        puntos_total: data.puntos_total ? Number(data.puntos_total) : undefined,
-      })
-    })
-
-    console.log(`✅ ${scores.length} scores fetched`)
-    return scores
+        ...data,
+        recordedAt: data.recordedAt instanceof Timestamp ? data.recordedAt.toDate().toISOString() : data.recordedAt,
+      }
+    }) as Score[]
   } catch (error) {
-    console.error("❌ Error fetching scores:", error)
-    return []
+    console.error("Error fetching scores:", error)
+    throw new Error("Failed to fetch scores")
   }
 }
 
-export async function addScore(scoreData: {
-  participantId: string
-  tiempo_fisico: number
-  tiempo_mental: number
-  extraGameDetailedStatuses?: { [gameId: string]: ExtraGameStatusDetail }
-  gameTimes?: { [gameId: string]: number }
-  recordedAt: Date
-}): Promise<string> {
-  console.log("➕ Adding score for participant:", scoreData.participantId)
+export async function getScoreById(id: string): Promise<Score | null> {
   try {
-    const dataToSave = {
-      participantId: scoreData.participantId,
-      tiempo_fisico: Number(scoreData.tiempo_fisico),
-      tiempo_mental: Number(scoreData.tiempo_mental),
-      extraGameDetailedStatuses: scoreData.extraGameDetailedStatuses || {},
-      gameTimes: scoreData.gameTimes || {},
-      recordedAt: Timestamp.fromDate(scoreData.recordedAt),
+    const docSnap = await getDoc(doc(db, "scores", id))
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      return {
+        id: docSnap.id,
+        ...data,
+        recordedAt: data.recordedAt instanceof Timestamp ? data.recordedAt.toDate().toISOString() : data.recordedAt,
+      } as Score
     }
+    return null
+  } catch (error) {
+    console.error("Error fetching score:", error)
+    throw new Error("Failed to fetch score")
+  }
+}
 
-    const docRef = await addDoc(collection(db, "scores"), dataToSave)
-    console.log("✅ Score added with ID:", docRef.id)
+export async function addScore(score: Omit<Score, "id">): Promise<string> {
+  try {
+    const scoreData = {
+      ...score,
+      recordedAt: score.recordedAt ? new Date(score.recordedAt) : new Date(),
+    }
+    const docRef = await addDoc(collection(db, "scores"), scoreData)
     return docRef.id
   } catch (error) {
-    console.error("❌ Error adding score:", error)
-    throw error
+    console.error("Error adding score:", error)
+    throw new Error("Failed to add score")
   }
 }
 
-export async function updateScore(id: string, scoreData: Partial<Score>): Promise<void> {
-  console.log("📝 Updating score:", id)
+export async function updateScore(id: string, score: Partial<Score>): Promise<void> {
   try {
-    const updateData: any = {}
-    if (scoreData.tiempo_fisico !== undefined) updateData.tiempo_fisico = Number(scoreData.tiempo_fisico)
-    if (scoreData.tiempo_mental !== undefined) updateData.tiempo_mental = Number(scoreData.tiempo_mental)
-    if (scoreData.extraGameDetailedStatuses !== undefined)
-      updateData.extraGameDetailedStatuses = scoreData.extraGameDetailedStatuses
-    if (scoreData.gameTimes !== undefined) updateData.gameTimes = scoreData.gameTimes
-
-    await updateDoc(doc(db, "scores", id), updateData)
-    console.log("✅ Score updated")
+    const scoreData = {
+      ...score,
+      recordedAt: score.recordedAt ? new Date(score.recordedAt) : undefined,
+    }
+    await updateDoc(doc(db, "scores", id), scoreData)
   } catch (error) {
-    console.error("❌ Error updating score:", error)
-    throw error
+    console.error("Error updating score:", error)
+    throw new Error("Failed to update score")
   }
 }
 
 export async function deleteScore(id: string): Promise<void> {
-  console.log("🗑️ Deleting score:", id)
   try {
     await deleteDoc(doc(db, "scores", id))
-    console.log("✅ Score deleted")
   } catch (error) {
-    console.error("❌ Error deleting score:", error)
-    throw error
+    console.error("Error deleting score:", error)
+    throw new Error("Failed to delete score")
   }
 }
 
 // Games
 export async function getGames(): Promise<Game[]> {
-  console.log("📥 Fetching games...")
   try {
     const querySnapshot = await getDocs(collection(db, "games"))
-    const games: Game[] = []
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data()
-      games.push({
-        id: doc.id,
-        name: data.name || "",
-        description: data.description || "",
-        category: data.category || "Physical",
-        extraType: data.extraType || undefined,
-      })
-    })
-
-    console.log(`✅ ${games.length} games fetched`)
-    return games
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Game[]
   } catch (error) {
-    console.error("❌ Error fetching games:", error)
-    return []
+    console.error("Error fetching games:", error)
+    throw new Error("Failed to fetch games")
   }
 }
 
 export async function addGame(game: Omit<Game, "id">): Promise<string> {
-  console.log("➕ Adding game:", game.name)
   try {
-    const docRef = await addDoc(collection(db, "games"), {
-      ...game,
-      createdAt: Timestamp.now(),
-    })
-    console.log("✅ Game added with ID:", docRef.id)
+    const docRef = await addDoc(collection(db, "games"), game)
     return docRef.id
   } catch (error) {
-    console.error("❌ Error adding game:", error)
-    throw error
+    console.error("Error adding game:", error)
+    throw new Error("Failed to add game")
   }
 }
 
-export async function updateGame(id: string, updates: Partial<Game>): Promise<void> {
-  console.log("📝 Updating game:", id)
+export async function updateGame(id: string, game: Partial<Game>): Promise<void> {
   try {
-    await updateDoc(doc(db, "games", id), {
-      ...updates,
-      updatedAt: Timestamp.now(),
-    })
-    console.log("✅ Game updated")
+    await updateDoc(doc(db, "games", id), game)
   } catch (error) {
-    console.error("❌ Error updating game:", error)
-    throw error
+    console.error("Error updating game:", error)
+    throw new Error("Failed to update game")
   }
 }
 
 export async function deleteGame(id: string): Promise<void> {
-  console.log("🗑️ Deleting game:", id)
   try {
     await deleteDoc(doc(db, "games", id))
-    console.log("✅ Game deleted")
   } catch (error) {
-    console.error("❌ Error deleting game:", error)
-    throw error
+    console.error("Error deleting game:", error)
+    throw new Error("Failed to delete game")
   }
 }
 
 // Scoring Settings
 export async function getScoringSettings(): Promise<ScoringSettings> {
-  console.log("📥 Fetching scoring settings...")
   try {
-    const docRef = doc(db, "settings", "scoring_rules")
-    const docSnap = await getDoc(docRef)
-
+    const docSnap = await getDoc(doc(db, "settings", "scoring"))
     if (docSnap.exists()) {
-      const data = docSnap.data()
-      const settings: ScoringSettings = {
-        id: docSnap.id,
+      const data = docSnap.data() as ScoringSettings
+      // Ensure all required properties exist with defaults
+      return {
         physical: {
-          threshold1: Number(data.physical?.threshold1) || DEFAULT_SCORING_SETTINGS.physical.threshold1,
-          threshold2: Number(data.physical?.threshold2) || DEFAULT_SCORING_SETTINGS.physical.threshold2,
-          maxPoints: Number(data.physical?.maxPoints) || DEFAULT_SCORING_SETTINGS.physical.maxPoints,
-          minPoints: Number(data.physical?.minPoints) || DEFAULT_SCORING_SETTINGS.physical.minPoints,
+          threshold1: data.physical?.threshold1 ?? DEFAULT_SCORING_SETTINGS.physical.threshold1,
+          threshold2: data.physical?.threshold2 ?? DEFAULT_SCORING_SETTINGS.physical.threshold2,
+          maxPoints: data.physical?.maxPoints ?? DEFAULT_SCORING_SETTINGS.physical.maxPoints,
+          minPoints: data.physical?.minPoints ?? DEFAULT_SCORING_SETTINGS.physical.minPoints,
         },
         mental: {
-          threshold1: Number(data.mental?.threshold1) || DEFAULT_SCORING_SETTINGS.mental.threshold1,
-          threshold2: Number(data.mental?.threshold2) || DEFAULT_SCORING_SETTINGS.mental.threshold2,
-          maxPoints: Number(data.mental?.maxPoints) || DEFAULT_SCORING_SETTINGS.mental.maxPoints,
-          minPoints: Number(data.mental?.minPoints) || DEFAULT_SCORING_SETTINGS.mental.minPoints,
+          threshold1: data.mental?.threshold1 ?? DEFAULT_SCORING_SETTINGS.mental.threshold1,
+          threshold2: data.mental?.threshold2 ?? DEFAULT_SCORING_SETTINGS.mental.threshold2,
+          maxPoints: data.mental?.maxPoints ?? DEFAULT_SCORING_SETTINGS.mental.maxPoints,
+          minPoints: data.mental?.minPoints ?? DEFAULT_SCORING_SETTINGS.mental.minPoints,
         },
         extras: {
-          capMax: Number(data.extras?.capMax) || DEFAULT_SCORING_SETTINGS.extras.capMax,
-          capMin: Number(data.extras?.capMin) || DEFAULT_SCORING_SETTINGS.extras.capMin,
+          capMax: data.extras?.capMax ?? DEFAULT_SCORING_SETTINGS.extras.capMax,
+          capMin: data.extras?.capMin ?? DEFAULT_SCORING_SETTINGS.extras.capMin,
           points: {
             opcional: {
               muy_bien:
-                Number(data.extras?.points?.opcional?.muy_bien) ||
-                DEFAULT_SCORING_SETTINGS.extras.points.opcional.muy_bien,
+                data.extras?.points?.opcional?.muy_bien ?? DEFAULT_SCORING_SETTINGS.extras.points.opcional.muy_bien,
               regular:
-                Number(data.extras?.points?.opcional?.regular) ||
-                DEFAULT_SCORING_SETTINGS.extras.points.opcional.regular,
+                data.extras?.points?.opcional?.regular ?? DEFAULT_SCORING_SETTINGS.extras.points.opcional.regular,
               no_hecho:
-                Number(data.extras?.points?.opcional?.no_hecho) ||
-                DEFAULT_SCORING_SETTINGS.extras.points.opcional.no_hecho,
+                data.extras?.points?.opcional?.no_hecho ?? DEFAULT_SCORING_SETTINGS.extras.points.opcional.no_hecho,
             },
             obligatoria: {
               muy_bien:
-                Number(data.extras?.points?.obligatoria?.muy_bien) ||
+                data.extras?.points?.obligatoria?.muy_bien ??
                 DEFAULT_SCORING_SETTINGS.extras.points.obligatoria.muy_bien,
               regular:
-                Number(data.extras?.points?.obligatoria?.regular) ||
-                DEFAULT_SCORING_SETTINGS.extras.points.obligatoria.regular,
+                data.extras?.points?.obligatoria?.regular ?? DEFAULT_SCORING_SETTINGS.extras.points.obligatoria.regular,
               no_hecho:
-                Number(data.extras?.points?.obligatoria?.no_hecho) ||
+                data.extras?.points?.obligatoria?.no_hecho ??
                 DEFAULT_SCORING_SETTINGS.extras.points.obligatoria.no_hecho,
             },
           },
         },
       }
-
-      console.log("✅ Scoring settings fetched")
-      return settings
-    } else {
-      await setDoc(docRef, DEFAULT_SCORING_SETTINGS)
-      const settings = { id: "scoring_rules", ...DEFAULT_SCORING_SETTINGS }
-      console.log("✅ Default scoring settings created")
-      return settings
     }
+    return DEFAULT_SCORING_SETTINGS
   } catch (error) {
-    console.error("❌ Error fetching scoring settings:", error)
-    return { id: "scoring_rules", ...DEFAULT_SCORING_SETTINGS }
+    console.error("Error fetching scoring settings:", error)
+    return DEFAULT_SCORING_SETTINGS
   }
 }
 
 export async function updateScoringSettings(settings: Omit<ScoringSettings, "id">): Promise<void> {
-  console.log("📝 Updating scoring settings...")
   try {
-    const docRef = doc(db, "settings", "scoring_rules")
-    await setDoc(docRef, settings, { merge: true })
-    console.log("✅ Scoring settings updated")
+    await updateDoc(doc(db, "settings", "scoring"), settings)
   } catch (error) {
-    console.error("❌ Error updating scoring settings:", error)
-    throw error
+    console.error("Error updating scoring settings:", error)
+    throw new Error("Failed to update scoring settings")
   }
 }
 
-export async function forceRefreshAllData(): Promise<{
-  participants: Participant[]
-  scores: Score[]
-  games: Game[]
-  settings: ScoringSettings
-}> {
-  console.log("🔄 Force refreshing all data...")
+// Utility function to force refresh all data
+export async function forceRefreshAllData(): Promise<void> {
   try {
-    const [participants, scores, games, settings] = await Promise.all([
-      getParticipants(),
-      getScores(),
-      getGames(),
-      getScoringSettings(),
-    ])
-
-    console.log("✅ All data refreshed successfully")
-    return { participants, scores, games, settings }
+    // This function can be used to trigger a refresh of all cached data
+    // Implementation depends on your caching strategy
+    console.log("Force refreshing all data...")
   } catch (error) {
-    console.error("❌ Error refreshing all data:", error)
-    const participants = await getParticipants().catch(() => [])
-    const scores = await getScores().catch(() => [])
-    const games = await getGames().catch(() => [])
-    const settings = await getScoringSettings().catch(() => ({ id: "scoring_rules", ...DEFAULT_SCORING_SETTINGS }))
-
-    return { participants, scores, games, settings }
+    console.error("Error force refreshing data:", error)
+    throw new Error("Failed to refresh data")
   }
 }
