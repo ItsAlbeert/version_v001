@@ -1,22 +1,55 @@
-import type React from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+"use client"
 
-interface ChartProps {
-  title: string
-  children: React.ReactNode
+import type React from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+
+interface ChartData {
+  label: string
+  value: number
+  color: string
+  percentage: number
 }
 
-const ChartContainer: React.FC<ChartProps> = ({ title, children }) => {
+interface ModernChartsProps {
+  data?: ChartData[]
+}
+
+export const ModernCharts: React.FC<ModernChartsProps> = ({
+  data = [
+    { label: "Excellent", value: 85, color: "bg-green-500", percentage: 42 },
+    { label: "Good", value: 65, color: "bg-blue-500", percentage: 32 },
+    { label: "Average", value: 45, color: "bg-yellow-500", percentage: 18 },
+    { label: "Below Average", value: 25, color: "bg-red-500", percentage: 8 },
+  ],
+}) => {
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="pb-0 pt-4 px-4">
-        <h3 className="text-lg font-semibold">{title}</h3>
-      </CardHeader>
-      <CardContent className="pl-4 pr-4">
-        <div className="rounded-lg p-4 bg-white/80 backdrop-blur-sm">{children}</div>
-      </CardContent>
-    </Card>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {data.map((item, index) => (
+        <Card key={index} className="shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{item.label}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold">{item.value}</span>
+                <Badge variant="secondary" className="text-xs">
+                  {item.percentage}%
+                </Badge>
+              </div>
+              <Progress value={item.percentage} className="h-2" />
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                <span className="text-xs text-muted-foreground">Performance Level</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   )
 }
 
-export default ChartContainer
+export default ModernCharts
