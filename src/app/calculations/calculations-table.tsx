@@ -1,57 +1,79 @@
-"use client"
-import { motion } from "framer-motion"
-
-import type { CalculationBreakdownEntry, Game } from "../../types"
-import { Table, TableHead, TableHeader, TableRow } from "../../components/ui/table"
-import { ScrollArea } from "../../components/ui/scroll-area"
-import { ParticipantRow } from "./participant-calculation-row"
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface CalculationsTableProps {
-  data: CalculationBreakdownEntry[]
-  extraGames: Game[]
+  data: any[]
 }
 
-export function CalculationsTable({ data, extraGames }: CalculationsTableProps) {
-  if (data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-40">
-        <p className="text-muted-foreground">No hay datos de cálculo disponibles.</p>
-      </div>
-    )
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
+const CalculationsTable = ({ data }: CalculationsTableProps) => {
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "id",
+      header: "ID",
     },
-  }
+    {
+      accessorKey: "principal",
+      header: "Principal",
+    },
+    {
+      accessorKey: "interestRate",
+      header: "Interest Rate",
+    },
+    {
+      accessorKey: "years",
+      header: "Years",
+    },
+    {
+      accessorKey: "monthlyPayment",
+      header: "Monthly Payment",
+    },
+  ]
+
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
 
   return (
-    <ScrollArea className="w-full whitespace-nowrap">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50px] text-center">#</TableHead>
-            <TableHead className="min-w-[250px]">Participante</TableHead>
-            <TableHead className="text-center">T. Físico (min)</TableHead>
-            <TableHead className="text-center">P. Físico</TableHead>
-            <TableHead className="text-center">T. Mental (min)</TableHead>
-            <TableHead className="text-center">P. Mental</TableHead>
-            <TableHead className="text-center">P. Extras (Cruda)</TableHead>
-            <TableHead className="text-center">P. Extras (Final)</TableHead>
-            <TableHead className="text-center font-bold text-lg">P. Total</TableHead>
-          </TableRow>
-        </TableHeader>
-        <motion.tbody variants={containerVariants} initial="hidden" animate="visible">
-          {data.map((entry) => (
-            <ParticipantRow key={entry.id} entry={entry} extraGames={extraGames} />
-          ))}
-        </motion.tbody>
-      </Table>
-    </ScrollArea>
+    <Card className="bg-white/80 backdrop-blur-sm">
+      <CardHeader>
+        <CardTitle>Calculations</CardTitle>
+        <CardDescription>Here are your past calculations.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => {
+              return (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => {
+                    return (
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    )
+                  })}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
+
+export default CalculationsTable
