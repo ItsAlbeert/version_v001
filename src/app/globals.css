@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* New Modern Dark Theme */
+    --background: 224 71.4% 4.1%; /* gray-950 */
+    --foreground: 210 20% 98%; /* light text */
+
+    --card: 220 25% 15%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 222 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Purple accent */
+    --primary: 262.1 83.3% 57.8%; /* purple-500 */
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 220 25% 25%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 215 20.2% 34.1%;
+    --muted-foreground: 215 27.9% 65.9%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --success: 142 71% 45%; 
+    --success-foreground: 210 40% 98%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
+    
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%; /* gray-800/700 */
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263.4 70% 50.4%;
+
+    /* Chart colors */
+    --chart-1: 262 83% 58%; /* purple */
+    --chart-2: 188 81% 44%; /* cyan */
+    --chart-3: 142 71% 45%; /* green */
+    --chart-4: 41 91% 51%;  /* orange */
+    --chart-5: 0 84% 60%;   /* red */
+
+    /* Sidebar colors */
+    --sidebar-background: 224 71.4% 4.1%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 262.1 83.3% 57.8%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 263.4 70% 50.4%;
+    
+    /* Border radius */
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* All variables from :root are inherited, making dark theme the default */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
