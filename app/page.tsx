@@ -1,7 +1,7 @@
 "use client"
 
-import  from "../src/components/ui/alert-dialog"
+import { Calendar } from "../src/components/ui/calendar"
 
 export default function SyntheticV0PageForDeployment() {
-  return < />
+  return <Calendar />
 }
